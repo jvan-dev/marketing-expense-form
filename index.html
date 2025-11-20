@@ -97,37 +97,40 @@
       below to select each company. The form will automatically calculate the split.
     </div>
 
-    <!-- Company multi-select search -->
-    <div class="search-block">
-      <h2>Select Companies</h2>
-      <small>
-        Start typing and choose each company this expense should be split across.
-        You can select multiple companies.
-      </small>
-      <input
-        type="text"
-        id="company-search"
-        placeholder="Start typing company name..."
-        autocomplete="off"
-        style="width: 100%; padding: 8px; margin-top: 6px;"
-      />
-      <ul id="company-results" class="results-list"></ul>
+    <!-- Custom search blocks (we'll move this into the middle of the HubSpot form with JS) -->
+    <div id="custom-search-blocks">
+      <!-- Company multi-select search -->
+      <div class="search-block">
+        <h2>Select Companies</h2>
+        <small>
+          Start typing and choose each company this expense should be split across.
+          You can select multiple companies.
+        </small>
+        <input
+          type="text"
+          id="company-search"
+          placeholder="Start typing company name..."
+          autocomplete="off"
+          style="width: 100%; padding: 8px; margin-top: 6px;"
+        />
+        <ul id="company-results" class="results-list"></ul>
 
-      <div id="company-selected" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;"></div>
-    </div>
+        <div id="company-selected" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
 
-    <!-- Contact search (single, for association only) -->
-    <div class="search-block">
-      <h2>Select Contact (optional)</h2>
-      <small>Start typing and select the contact (e.g. referring attorney or office contact).</small>
-      <input
-        type="text"
-        id="contact-search"
-        placeholder="Start typing contact email or name..."
-        autocomplete="off"
-        style="width: 100%; padding: 8px; margin-top: 6px;"
-      />
-      <ul id="contact-results" class="results-list"></ul>
+      <!-- Contact search (single, for association only) -->
+      <div class="search-block">
+        <h2>Select Contact (optional)</h2>
+        <small>Start typing and select the contact (e.g. attorney or office contact).</small>
+        <input
+          type="text"
+          id="contact-search"
+          placeholder="Start typing contact email or name..."
+          autocomplete="off"
+          style="width: 100%; padding: 8px; margin-top: 6px;"
+        />
+        <ul id="contact-results" class="results-list"></ul>
+      </div>
     </div>
 
     <!-- Your HubSpot form embed -->
@@ -148,6 +151,8 @@
     const contactInput = document.getElementById("contact-search");
     const contactResults = document.getElementById("contact-results");
 
+    const customBlocks = document.getElementById("custom-search-blocks");
+
     // Store selected companies in memory
     let selectedCompanies = []; // [{ id, name, city, domain }, ...]
 
@@ -160,7 +165,7 @@
     }
 
     // --- COMPANY SEARCH (multi-select) ---
-    companyInput.addEventListener(
+    companyInput?.addEventListener(
       "input",
       debounce(async () => {
         const q = companyInput.value.trim();
@@ -254,7 +259,7 @@
     }
 
     // --- CONTACT SEARCH (single) ---
-    contactInput.addEventListener(
+    contactInput?.addEventListener(
       "input",
       debounce(async () => {
         const q = contactInput.value.trim();
@@ -312,6 +317,37 @@
         }
       }, 300);
     }
+
+    // --- Move custom search blocks into the middle of the HubSpot form ---
+    function moveSearchBlocksIntoForm() {
+      const formEl = document.querySelector(".hs-form");
+      if (!formEl || !customBlocks || customBlocks.dataset.moved === "true") {
+        return;
+      }
+
+      // 🔧 Choose where to insert: after a specific field
+      // Replace "expense_date" with the internal name of the field you want to follow
+      const anchorInput =
+        formEl.querySelector('input[name="expense_date"]') ||
+        formEl.querySelector('input[name="amount"]') || // fallback
+        formEl.querySelector(".hs-form-field"); // final fallback: top of form
+
+      if (!anchorInput) return;
+
+      const anchorField = anchorInput.closest(".hs-form-field") || anchorInput.parentElement;
+      if (!anchorField) return;
+
+      anchorField.parentNode.insertBefore(customBlocks, anchorField.nextSibling);
+      customBlocks.dataset.moved = "true";
+    }
+
+    // Keep trying to move blocks until the form is rendered
+    const moveInterval = setInterval(() => {
+      moveSearchBlocksIntoForm();
+      if (customBlocks.dataset.moved === "true") {
+        clearInterval(moveInterval);
+      }
+    }, 500);
   </script>
 </body>
 </html>
