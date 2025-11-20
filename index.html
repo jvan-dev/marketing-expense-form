@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Marketing Expense Form</title>
+  <title>Submit Marketing Expense</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -12,30 +12,123 @@
       background: #f5f5f5;
     }
     .wrapper {
-      max-width: 700px;
+      max-width: 720px;
       margin: 0 auto;
       background: #ffffff;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border-radius: 12px;
+      padding: 24px 20px 28px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
     }
-    h2 {
-      margin-top: 0;
-      margin-bottom: 12px;
-      font-size: 20px;
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
     }
-    p {
-      margin-top: 0;
-      margin-bottom: 18px;
-      color: #444;
+    p.description {
+      margin: 0 0 20px;
+      color: #555;
       font-size: 14px;
+    }
+    .note {
+      background: #f0f4ff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #334;
+    }
+
+    /* Search UI styles */
+    .search-block {
+      margin-bottom: 20px;
+    }
+    .search-block h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+    .search-block small {
+      color: #666;
+      font-size: 12px;
+    }
+    .results-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 6px 0 0;
+      border: 1px solid #ccc;
+      max-height: 160px;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 4px;
+    }
+    .results-list li {
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .results-list li:hover {
+      background: #f0f4ff;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: #eef2ff;
+      font-size: 12px;
+      gap: 6px;
+    }
+    .chip button {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 12px;
     }
   </style>
 </head>
 <body>
   <div class="wrapper">
-    <h2>Submit Marketing Expense</h2>
-    <p>Use this form to log your marketing expenses and upload receipts.</p>
+    <h1>Submit Marketing Expense</h1>
+    <p class="description">
+      Use this form to log your marketing expenses and upload a receipt. 
+      After submission, your expense will appear in the Marketing Expenses pipeline.
+    </p>
+
+    <div class="note">
+      <strong>Tip:</strong> If this expense should be split across multiple companies, use the search
+      below to select each company. The form will automatically calculate the split.
+    </div>
+
+    <!-- Company multi-select search -->
+    <div class="search-block">
+      <h2>Select Companies</h2>
+      <small>
+        Start typing and choose each company this expense should be split across.
+        You can select multiple companies.
+      </small>
+      <input
+        type="text"
+        id="company-search"
+        placeholder="Start typing company name..."
+        autocomplete="off"
+        style="width: 100%; padding: 8px; margin-top: 6px;"
+      />
+      <ul id="company-results" class="results-list"></ul>
+
+      <div id="company-selected" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;"></div>
+    </div>
+
+    <!-- Contact search (single, for association only) -->
+    <div class="search-block">
+      <h2>Select Contact (optional)</h2>
+      <small>Start typing and select the contact (e.g. referring attorney or office contact).</small>
+      <input
+        type="text"
+        id="contact-search"
+        placeholder="Start typing contact email or name..."
+        autocomplete="off"
+        style="width: 100%; padding: 8px; margin-top: 6px;"
+      />
+      <ul id="contact-results" class="results-list"></ul>
+    </div>
 
     <!-- Your HubSpot form embed -->
     <script src="https://js.hsforms.net/forms/embed/47533335.js" defer></script>
@@ -46,5 +139,179 @@
       data-portal-id="47533335">
     </div>
   </div>
+
+  <script>
+    const companyInput = document.getElementById("company-search");
+    const companyResults = document.getElementById("company-results");
+    const companySelected = document.getElementById("company-selected");
+
+    const contactInput = document.getElementById("contact-search");
+    const contactResults = document.getElementById("contact-results");
+
+    // Store selected companies in memory
+    let selectedCompanies = []; // [{ id, name, city, domain }, ...]
+
+    function debounce(fn, delay) {
+      let t;
+      return function (...args) {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(this, args), delay);
+      };
+    }
+
+    // --- COMPANY SEARCH (multi-select) ---
+    companyInput.addEventListener(
+      "input",
+      debounce(async () => {
+        const q = companyInput.value.trim();
+        companyResults.innerHTML = "";
+        if (!q) return;
+
+        try {
+          const res = await fetch(`/.netlify/functions/searchCompanies?q=${encodeURIComponent(q)}`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          (data.companies || []).forEach((c) => {
+            const li = document.createElement("li");
+            const parts = [c.name];
+            if (c.city) parts.push(`(${c.city})`);
+            if (c.domain) parts.push(`– ${c.domain}`);
+            li.textContent = parts.join(" ");
+            li.dataset.id = c.id;
+            li.dataset.name = c.name;
+            li.dataset.city = c.city || "";
+            li.dataset.domain = c.domain || "";
+            companyResults.appendChild(li);
+          });
+        } catch (e) {
+          console.error("Company search error:", e);
+        }
+      }, 300)
+    );
+
+    // When user clicks a result → add to selected list
+    companyResults.addEventListener("click", (e) => {
+      if (e.target.tagName !== "LI") return;
+      const id = e.target.dataset.id;
+      const name = e.target.dataset.name;
+      const city = e.target.dataset.city;
+      const domain = e.target.dataset.domain;
+
+      // Avoid duplicates
+      if (!selectedCompanies.find(c => c.id === id)) {
+        selectedCompanies.push({ id, name, city, domain });
+        renderSelectedCompanies();
+        syncCompaniesToForm();
+      }
+
+      companyInput.value = "";
+      companyResults.innerHTML = "";
+    });
+
+    // Render chips for selected companies
+    function renderSelectedCompanies() {
+      companySelected.innerHTML = "";
+      selectedCompanies.forEach((c) => {
+        const chip = document.createElement("div");
+        chip.className = "chip";
+        chip.textContent = c.name;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = "×";
+        btn.onclick = () => {
+          selectedCompanies = selectedCompanies.filter(x => x.id !== c.id);
+          renderSelectedCompanies();
+          syncCompaniesToForm();
+        };
+
+        chip.appendChild(btn);
+        companySelected.appendChild(chip);
+      });
+    }
+
+    // Push selected companies into HubSpot form fields
+    function syncCompaniesToForm() {
+      const ids = selectedCompanies.map(c => c.id);
+      const names = selectedCompanies.map(c => c.name);
+
+      // Multi fields (hidden on form)
+      syncToHubSpotField("associated_company_ids_multi", ids.join(","));
+      syncToHubSpotField("associated_company_names_multi", names.join(", "));
+
+      // Primary single company (first one), for compatibility
+      if (selectedCompanies.length > 0) {
+        syncToHubSpotField("associated_company", selectedCompanies[0].name);
+        syncToHubSpotField("associated_company_id", selectedCompanies[0].id);
+      } else {
+        syncToHubSpotField("associated_company", "");
+        syncToHubSpotField("associated_company_id", "");
+      }
+
+      // Receipt split = number of selected companies
+      syncToHubSpotField("receipt_split", selectedCompanies.length.toString());
+    }
+
+    // --- CONTACT SEARCH (single) ---
+    contactInput.addEventListener(
+      "input",
+      debounce(async () => {
+        const q = contactInput.value.trim();
+        contactResults.innerHTML = "";
+        if (!q) return;
+
+        try {
+          const res = await fetch(`/.netlify/functions/searchContacts?q=${encodeURIComponent(q)}`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          (data.contacts || []).forEach((c) => {
+            const li = document.createElement("li");
+            const fullName = [c.firstname, c.lastname].filter(Boolean).join(" ");
+            const label = fullName ? `${fullName} <${c.email}>` : c.email;
+            li.textContent = label;
+            li.dataset.id = c.id;
+            li.dataset.name = fullName || c.email;
+            li.dataset.email = c.email;
+            contactResults.appendChild(li);
+          });
+        } catch (e) {
+          console.error("Contact search error:", e);
+        }
+      }, 300)
+    );
+
+    contactResults.addEventListener("click", (e) => {
+      if (e.target.tagName !== "LI") return;
+      const name = e.target.dataset.name;
+      const email = e.target.dataset.email;
+      const id = e.target.dataset.id;
+
+      contactInput.value = `${name} <${email}>`;
+      contactResults.innerHTML = "";
+
+      syncToHubSpotField("associated_contact", name);
+      syncToHubSpotField("associated_contact_id", id);
+    });
+
+    // --- Helper: write into HubSpot embedded form fields ---
+    function syncToHubSpotField(internalName, value) {
+      const start = Date.now();
+      const maxMs = 5000; // stop trying after 5s
+
+      const interval = setInterval(() => {
+        const field = document.querySelector(`.hs-form input[name="${internalName}"]`);
+        if (field) {
+          field.value = value;
+          const evt = new Event("input", { bubbles: true });
+          field.dispatchEvent(evt);
+          clearInterval(interval);
+        } else if (Date.now() - start > maxMs) {
+          clearInterval(interval);
+        }
+      }, 300);
+    }
+  </script>
 </body>
 </html>
