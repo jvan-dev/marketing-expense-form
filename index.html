@@ -1,16 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>Submit Marketing Expense</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    /* Layout */
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
       padding: 16px;
       background: #f5f5f5;
     }
+
     .wrapper {
       max-width: 720px;
       margin: 0 auto;
@@ -19,15 +21,18 @@
       padding: 24px 20px 28px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.06);
     }
+
     h1 {
       margin: 0 0 8px;
       font-size: 22px;
     }
+
     p.description {
-      margin: 0 0 20px;
+      margin: 0 0 16px;
       color: #555;
       font-size: 14px;
     }
+
     .note {
       background: #f0f4ff;
       border-radius: 8px;
@@ -37,36 +42,59 @@
       color: #334;
     }
 
-    /* Search UI styles */
+    /* Search UI blocks */
     .search-block {
       margin-bottom: 20px;
     }
+
     .search-block h2 {
       margin: 0 0 6px;
       font-size: 16px;
     }
+
     .search-block small {
       color: #666;
       font-size: 12px;
     }
+
+    .search-input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
     .results-list {
       list-style: none;
       padding-left: 0;
       margin: 6px 0 0;
       border: 1px solid #ccc;
-      max-height: 160px;
+      max-height: 180px;
       overflow-y: auto;
       background: #fff;
       border-radius: 4px;
     }
+
     .results-list li {
       padding: 6px 8px;
       cursor: pointer;
       font-size: 14px;
     }
+
     .results-list li:hover {
       background: #f0f4ff;
     }
+
+    .selected-chips {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
     .chip {
       display: inline-flex;
       align-items: center;
@@ -76,11 +104,13 @@
       font-size: 12px;
       gap: 6px;
     }
+
     .chip button {
       border: none;
       background: transparent;
       cursor: pointer;
       font-size: 12px;
+      line-height: 1;
     }
   </style>
 </head>
@@ -88,16 +118,17 @@
   <div class="wrapper">
     <h1>Submit Marketing Expense</h1>
     <p class="description">
-      Use this form to log your marketing expenses and upload a receipt. 
+      Use this form to log your marketing expenses and upload a receipt.
       After submission, your expense will appear in the Marketing Expenses pipeline.
     </p>
 
     <div class="note">
-      <strong>Tip:</strong> If this expense should be split across multiple companies, use the search
-      below to select each company. The form will automatically calculate the split.
+      <strong>Tip:</strong> Use the search boxes below to select the company or companies this
+      expense should be attributed to, and (optionally) a contact. The form will automatically
+      update the hidden HubSpot fields and your workflow will handle the rest.
     </div>
 
-    <!-- Custom search blocks (we'll move this into the middle of the HubSpot form with JS) -->
+    <!-- Custom search UI ABOVE the HubSpot form -->
     <div id="custom-search-blocks">
       <!-- Company multi-select search -->
       <div class="search-block">
@@ -109,31 +140,33 @@
         <input
           type="text"
           id="company-search"
+          class="search-input"
           placeholder="Start typing company name..."
           autocomplete="off"
-          style="width: 100%; padding: 8px; margin-top: 6px;"
         />
         <ul id="company-results" class="results-list"></ul>
 
-        <div id="company-selected" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;"></div>
+        <div id="company-selected" class="selected-chips"></div>
       </div>
 
       <!-- Contact search (single, for association only) -->
       <div class="search-block">
         <h2>Select Contact (optional)</h2>
-        <small>Start typing and select the contact (e.g. attorney or office contact).</small>
+        <small>
+          Start typing and select the contact (e.g. attorney, office contact, or patient).
+        </small>
         <input
           type="text"
           id="contact-search"
-          placeholder="Start typing contact email or name..."
+          class="search-input"
+          placeholder="Start typing contact name or email..."
           autocomplete="off"
-          style="width: 100%; padding: 8px; margin-top: 6px;"
         />
         <ul id="contact-results" class="results-list"></ul>
       </div>
     </div>
 
-    <!-- Your HubSpot form embed -->
+    <!-- HubSpot form embed -->
     <script src="https://js.hsforms.net/forms/embed/47533335.js" defer></script>
     <div
       class="hs-form-frame"
@@ -144,212 +177,198 @@
   </div>
 
   <script>
-    const companyInput = document.getElementById("company-search");
-    const companyResults = document.getElementById("company-results");
-    const companySelected = document.getElementById("company-selected");
+    document.addEventListener("DOMContentLoaded", function () {
+      const companyInput   = document.getElementById("company-search");
+      const companyResults = document.getElementById("company-results");
+      const companySelected = document.getElementById("company-selected");
 
-    const contactInput = document.getElementById("contact-search");
-    const contactResults = document.getElementById("contact-results");
+      const contactInput   = document.getElementById("contact-search");
+      const contactResults = document.getElementById("contact-results");
 
-    const customBlocks = document.getElementById("custom-search-blocks");
-
-    // Store selected companies in memory
-    let selectedCompanies = []; // [{ id, name, city, domain }, ...]
-
-    function debounce(fn, delay) {
-      let t;
-      return function (...args) {
-        clearTimeout(t);
-        t = setTimeout(() => fn.apply(this, args), delay);
-      };
-    }
-
-    // --- COMPANY SEARCH (multi-select) ---
-    companyInput?.addEventListener(
-      "input",
-      debounce(async () => {
-        const q = companyInput.value.trim();
-        companyResults.innerHTML = "";
-        if (!q) return;
-
-        try {
-          const res = await fetch(`/.netlify/functions/searchCompanies?q=${encodeURIComponent(q)}`);
-          if (!res.ok) return;
-          const data = await res.json();
-
-          (data.companies || []).forEach((c) => {
-            const li = document.createElement("li");
-            const parts = [c.name];
-            if (c.city) parts.push(`(${c.city})`);
-            if (c.domain) parts.push(`– ${c.domain}`);
-            li.textContent = parts.join(" ");
-            li.dataset.id = c.id;
-            li.dataset.name = c.name;
-            li.dataset.city = c.city || "";
-            li.dataset.domain = c.domain || "";
-            companyResults.appendChild(li);
-          });
-        } catch (e) {
-          console.error("Company search error:", e);
-        }
-      }, 300)
-    );
-
-    // When user clicks a result → add to selected list
-    companyResults.addEventListener("click", (e) => {
-      if (e.target.tagName !== "LI") return;
-      const id = e.target.dataset.id;
-      const name = e.target.dataset.name;
-      const city = e.target.dataset.city;
-      const domain = e.target.dataset.domain;
-
-      // Avoid duplicates
-      if (!selectedCompanies.find(c => c.id === id)) {
-        selectedCompanies.push({ id, name, city, domain });
-        renderSelectedCompanies();
-        syncCompaniesToForm();
+      // If any of the expected elements are missing, don't throw hard errors
+      if (!companyInput || !companyResults || !companySelected || !contactInput || !contactResults) {
+        console.warn("Search inputs or result containers not found in DOM.");
+        return;
       }
 
-      companyInput.value = "";
-      companyResults.innerHTML = "";
-    });
+      // In-memory store of selected companies
+      let selectedCompanies = []; // [{ id, name, city, domain }, ...]
 
-    // Render chips for selected companies
-    function renderSelectedCompanies() {
-      companySelected.innerHTML = "";
-      selectedCompanies.forEach((c) => {
-        const chip = document.createElement("div");
-        chip.className = "chip";
-        chip.textContent = c.name;
+      function debounce(fn, delay) {
+        let t;
+        return function (...args) {
+          clearTimeout(t);
+          t = setTimeout(() => fn.apply(this, args), delay);
+        };
+      }
 
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = "×";
-        btn.onclick = () => {
-          selectedCompanies = selectedCompanies.filter(x => x.id !== c.id);
+      // -----------------------------
+      // COMPANY SEARCH (multi-select)
+      // -----------------------------
+      companyInput.addEventListener(
+        "input",
+        debounce(async () => {
+          const q = companyInput.value.trim();
+          companyResults.innerHTML = "";
+          if (!q) return;
+
+          try {
+            const res = await fetch(
+              "/.netlify/functions/searchCompanies?q=" + encodeURIComponent(q)
+            );
+            if (!res.ok) return;
+
+            const data = await res.json();
+            (data.companies || []).forEach((c) => {
+              const li = document.createElement("li");
+              const parts = [c.name];
+              if (c.city) parts.push(`(${c.city})`);
+              if (c.domain) parts.push(`– ${c.domain}`);
+              li.textContent = parts.join(" ");
+              li.dataset.id = c.id;
+              li.dataset.name = c.name;
+              li.dataset.city = c.city || "";
+              li.dataset.domain = c.domain || "";
+              companyResults.appendChild(li);
+            });
+          } catch (e) {
+            console.error("Company search error:", e);
+          }
+        }, 300)
+      );
+
+      // When user clicks a company result
+      companyResults.addEventListener("click", (e) => {
+        if (e.target.tagName !== "LI") return;
+
+        const id     = e.target.dataset.id;
+        const name   = e.target.dataset.name;
+        const city   = e.target.dataset.city;
+        const domain = e.target.dataset.domain;
+
+        // Avoid duplicates
+        if (!selectedCompanies.find((c) => c.id === id)) {
+          selectedCompanies.push({ id, name, city, domain });
           renderSelectedCompanies();
           syncCompaniesToForm();
-        };
+        }
 
-        chip.appendChild(btn);
-        companySelected.appendChild(chip);
+        companyInput.value = "";
+        companyResults.innerHTML = "";
       });
-    }
 
-    // Push selected companies into HubSpot form fields
-    function syncCompaniesToForm() {
-      const ids = selectedCompanies.map(c => c.id);
-      const names = selectedCompanies.map(c => c.name);
+      function renderSelectedCompanies() {
+        companySelected.innerHTML = "";
+        selectedCompanies.forEach((c) => {
+          const chip = document.createElement("div");
+          chip.className = "chip";
+          chip.textContent = c.name;
 
-      // Multi fields (hidden on form)
-      syncToHubSpotField("associated_company_ids_multi", ids.join(","));
-      syncToHubSpotField("associated_company_names_multi", names.join(", "));
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = "×";
+          btn.addEventListener("click", () => {
+            selectedCompanies = selectedCompanies.filter((x) => x.id !== c.id);
+            renderSelectedCompanies();
+            syncCompaniesToForm();
+          });
 
-      // Primary single company (first one), for compatibility
-      if (selectedCompanies.length > 0) {
-        syncToHubSpotField("associated_company", selectedCompanies[0].name);
-        syncToHubSpotField("associated_company_id", selectedCompanies[0].id);
-      } else {
-        syncToHubSpotField("associated_company", "");
-        syncToHubSpotField("associated_company_id", "");
+          chip.appendChild(btn);
+          companySelected.appendChild(chip);
+        });
       }
 
-      // Receipt split = number of selected companies
-      syncToHubSpotField("receipt_split", selectedCompanies.length.toString());
-    }
+      function syncCompaniesToForm() {
+        const ids   = selectedCompanies.map((c) => c.id);
+        const names = selectedCompanies.map((c) => c.name);
 
-    // --- CONTACT SEARCH (single) ---
-    contactInput?.addEventListener(
-      "input",
-      debounce(async () => {
-        const q = contactInput.value.trim();
+        // Multi-value fields (hidden contact properties on the HubSpot form)
+        syncToHubSpotField("associated_company_ids_multi", ids.join(","));
+        syncToHubSpotField("associated_company_names_multi", names.join(", "));
+
+        // Primary (first) company for compatibility
+        if (selectedCompanies.length > 0) {
+          syncToHubSpotField("associated_company", selectedCompanies[0].name);
+          syncToHubSpotField("associated_company_id", selectedCompanies[0].id);
+        } else {
+          syncToHubSpotField("associated_company", "");
+          syncToHubSpotField("associated_company_id", "");
+        }
+
+        // Receipt split = number of selected companies
+        syncToHubSpotField("receipt_split", String(selectedCompanies.length || 0));
+      }
+
+      // -----------------------------
+      // CONTACT SEARCH (single)
+      // -----------------------------
+      contactInput.addEventListener(
+        "input",
+        debounce(async () => {
+          const q = contactInput.value.trim();
+          contactResults.innerHTML = "";
+          if (!q) return;
+
+          try {
+            const res = await fetch(
+              "/.netlify/functions/searchContacts?q=" + encodeURIComponent(q)
+            );
+            if (!res.ok) return;
+
+            const data = await res.json();
+            (data.contacts || []).forEach((c) => {
+              const li = document.createElement("li");
+              const fullName = [c.firstname, c.lastname].filter(Boolean).join(" ");
+              const label = fullName ? `${fullName} <${c.email}>` : c.email;
+              li.textContent = label;
+              li.dataset.id = c.id;
+              li.dataset.name = fullName || c.email;
+              li.dataset.email = c.email;
+              contactResults.appendChild(li);
+            });
+          } catch (e) {
+            console.error("Contact search error:", e);
+          }
+        }, 300)
+      );
+
+      contactResults.addEventListener("click", (e) => {
+        if (e.target.tagName !== "LI") return;
+
+        const name  = e.target.dataset.name;
+        const email = e.target.dataset.email;
+        const id    = e.target.dataset.id;
+
+        contactInput.value = name ? `${name} <${email}>` : email;
         contactResults.innerHTML = "";
-        if (!q) return;
 
-        try {
-          const res = await fetch(`/.netlify/functions/searchContacts?q=${encodeURIComponent(q)}`);
-          if (!res.ok) return;
-          const data = await res.json();
+        syncToHubSpotField("associated_contact", name || email || "");
+        syncToHubSpotField("associated_contact_id", id || "");
+      });
 
-          (data.contacts || []).forEach((c) => {
-            const li = document.createElement("li");
-            const fullName = [c.firstname, c.lastname].filter(Boolean).join(" ");
-            const label = fullName ? `${fullName} <${c.email}>` : c.email;
-            li.textContent = label;
-            li.dataset.id = c.id;
-            li.dataset.name = fullName || c.email;
-            li.dataset.email = c.email;
-            contactResults.appendChild(li);
-          });
-        } catch (e) {
-          console.error("Contact search error:", e);
-        }
-      }, 300)
-    );
+      // -----------------------------
+      // Helper: sync into HubSpot form fields
+      // -----------------------------
+      function syncToHubSpotField(internalName, value) {
+        const start = Date.now();
+        const maxMs = 5000; // try up to 5 seconds
 
-    contactResults.addEventListener("click", (e) => {
-      if (e.target.tagName !== "LI") return;
-      const name = e.target.dataset.name;
-      const email = e.target.dataset.email;
-      const id = e.target.dataset.id;
+        const interval = setInterval(() => {
+          const field = document.querySelector(
+            '.hs-form input[name="' + internalName + '"]'
+          );
 
-      contactInput.value = `${name} <${email}>`;
-      contactResults.innerHTML = "";
-
-      syncToHubSpotField("associated_contact", name);
-      syncToHubSpotField("associated_contact_id", id);
+          if (field) {
+            field.value = value;
+            const evt = new Event("input", { bubbles: true });
+            field.dispatchEvent(evt);
+            clearInterval(interval);
+          } else if (Date.now() - start > maxMs) {
+            clearInterval(interval);
+          }
+        }, 300);
+      }
     });
-
-    // --- Helper: write into HubSpot embedded form fields ---
-    function syncToHubSpotField(internalName, value) {
-      const start = Date.now();
-      const maxMs = 5000; // stop trying after 5s
-
-      const interval = setInterval(() => {
-        const field = document.querySelector(`.hs-form input[name="${internalName}"]`);
-        if (field) {
-          field.value = value;
-          const evt = new Event("input", { bubbles: true });
-          field.dispatchEvent(evt);
-          clearInterval(interval);
-        } else if (Date.now() - start > maxMs) {
-          clearInterval(interval);
-        }
-      }, 300);
-    }
-
-    // --- Move custom search blocks into the middle of the HubSpot form ---
-function moveSearchBlocksIntoForm() {
-  const formEl = document.querySelector(".hs-form");
-  if (!formEl || !customBlocks || customBlocks.dataset.moved === "true") {
-    return;
-  }
-
-  // Insert AFTER the "Notes" field (internal name: notes)
-  const anchorInput =
-    formEl.querySelector('textarea[name="notes"]') ||     // your Notes field
-    formEl.querySelector('input[name="receipt"]') ||      // fallback
-    formEl.querySelector('input[name="amount"]') ||       // fallback
-    formEl.querySelector(".hs-form-field");               // final fallback
-
-  if (!anchorInput) return;
-
-  const anchorField =
-    anchorInput.closest(".hs-form-field") || anchorInput.parentElement;
-
-  anchorField.parentNode.insertBefore(
-    customBlocks,
-    anchorField.nextSibling // insert after Notes
-  );
-
-  customBlocks.dataset.moved = "true";
-}
-
-// Keep trying until the form loads
-const moveInterval = setInterval(() => {
-  moveSearchBlocksIntoForm();
-  if (customBlocks.dataset.moved === "true") {
-    clearInterval(moveInterval);
-  }
-}, 500);
-
+  </script>
+</body>
+</html>
