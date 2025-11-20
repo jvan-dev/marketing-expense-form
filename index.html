@@ -97,7 +97,15 @@
       below to select each company. The form will automatically calculate the split.
     </div>
 
-    <!-- Custom search blocks (we'll move this into the middle of the HubSpot form with JS) -->
+    <!-- Your HubSpot form embed -->
+    <script src="https://js.hsforms.net/forms/embed/47533335.js" defer></script>
+    <div
+      class="hs-form-frame"
+      data-region="na1"
+      data-form-id="655271df-bc7e-49ac-b47a-b6fd1dec3eac"
+      data-portal-id="47533335">
+    </div>
+        <!-- Custom search blocks (we'll move this into the middle of the HubSpot form with JS) -->
     <div id="custom-search-blocks">
       <!-- Company multi-select search -->
       <div class="search-block">
@@ -132,16 +140,6 @@
         <ul id="contact-results" class="results-list"></ul>
       </div>
     </div>
-
-    <!-- Your HubSpot form embed -->
-    <script src="https://js.hsforms.net/forms/embed/47533335.js" defer></script>
-    <div
-      class="hs-form-frame"
-      data-region="na1"
-      data-form-id="655271df-bc7e-49ac-b47a-b6fd1dec3eac"
-      data-portal-id="47533335">
-    </div>
-  </div>
 
   <script>
     const companyInput = document.getElementById("company-search");
@@ -352,4 +350,5 @@ const moveInterval = setInterval(() => {
     clearInterval(moveInterval);
   }
 }, 500);
+
 
