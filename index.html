@@ -319,35 +319,37 @@
     }
 
     // --- Move custom search blocks into the middle of the HubSpot form ---
-    function moveSearchBlocksIntoForm() {
-      const formEl = document.querySelector(".hs-form");
-      if (!formEl || !customBlocks || customBlocks.dataset.moved === "true") {
-        return;
-      }
+function moveSearchBlocksIntoForm() {
+  const formEl = document.querySelector(".hs-form");
+  if (!formEl || !customBlocks || customBlocks.dataset.moved === "true") {
+    return;
+  }
 
-      // 🔧 Choose where to insert: after a specific field
-      // Replace "expense_date" with the internal name of the field you want to follow
-      const anchorInput =
-        formEl.querySelector('input[name="expense_date"]') ||
-        formEl.querySelector('input[name="amount"]') || // fallback
-        formEl.querySelector(".hs-form-field"); // final fallback: top of form
+  // Insert AFTER the "Notes" field (internal name: notes)
+  const anchorInput =
+    formEl.querySelector('textarea[name="notes"]') ||     // your Notes field
+    formEl.querySelector('input[name="receipt"]') ||      // fallback
+    formEl.querySelector('input[name="amount"]') ||       // fallback
+    formEl.querySelector(".hs-form-field");               // final fallback
 
-      if (!anchorInput) return;
+  if (!anchorInput) return;
 
-      const anchorField = anchorInput.closest(".hs-form-field") || anchorInput.parentElement;
-      if (!anchorField) return;
+  const anchorField =
+    anchorInput.closest(".hs-form-field") || anchorInput.parentElement;
 
-      anchorField.parentNode.insertBefore(customBlocks, anchorField.nextSibling);
-      customBlocks.dataset.moved = "true";
-    }
+  anchorField.parentNode.insertBefore(
+    customBlocks,
+    anchorField.nextSibling // insert after Notes
+  );
 
-    // Keep trying to move blocks until the form is rendered
-    const moveInterval = setInterval(() => {
-      moveSearchBlocksIntoForm();
-      if (customBlocks.dataset.moved === "true") {
-        clearInterval(moveInterval);
-      }
-    }, 500);
-  </script>
-</body>
-</html>
+  customBlocks.dataset.moved = "true";
+}
+
+// Keep trying until the form loads
+const moveInterval = setInterval(() => {
+  moveSearchBlocksIntoForm();
+  if (customBlocks.dataset.moved === "true") {
+    clearInterval(moveInterval);
+  }
+}, 500);
+
