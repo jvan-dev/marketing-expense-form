@@ -169,14 +169,22 @@
   </div>
 
   <script>
-    // Render the HubSpot form inline (no iframe)
+    // Global reference to the actual HubSpot <form> element
+    window.hsFormEl = null;
+
+    // Render the HubSpot form inline (no iframe) and capture the form element
     document.addEventListener("DOMContentLoaded", function () {
       if (window.hbspt && window.hbspt.forms) {
         window.hbspt.forms.create({
           region: "na1",
           portalId: "47533335",
           formId: "655271df-bc7e-49ac-b47a-b6fd1dec3eac",
-          target: "#hs-form-container"
+          target: "#hs-form-container",
+          onFormReady: function($form) {
+            // $form may be a jQuery-like object or a plain DOM node
+            window.hsFormEl = $form && $form.get ? $form.get(0) : $form;
+            console.log("HubSpot form ready:", window.hsFormEl);
+          }
         });
       }
     });
@@ -346,26 +354,22 @@
       });
 
       // -----------------------------
-      // Helper: sync into HubSpot form fields
+      // Helper: sync into *this* HubSpot form
       // -----------------------------
       function syncToHubSpotField(internalName, value) {
-        const start = Date.now();
-        const maxMs = 5000;
-
-        const interval = setInterval(() => {
-          const field = document.querySelector(
-            '.hs-form input[name="' + internalName + '"]'
-          );
-
-          if (field) {
-            field.value = value;
-            const evt = new Event("input", { bubbles: true });
-            field.dispatchEvent(evt);
-            clearInterval(interval);
-          } else if (Date.now() - start > maxMs) {
-            clearInterval(interval);
-          }
-        }, 300);
+        if (!window.hsFormEl) {
+          console.warn("HubSpot form not ready yet; cannot sync field:", internalName);
+          return;
+        }
+        const field = window.hsFormEl.querySelector('input[name="' + internalName + '"]');
+        if (!field) {
+          console.warn("Field not found in form:", internalName);
+          return;
+        }
+        field.value = value;
+        const evt = new Event("input", { bubbles: true });
+        field.dispatchEvent(evt);
+        console.log("Updated HS field", internalName, "to", value);
       }
     });
   </script>
