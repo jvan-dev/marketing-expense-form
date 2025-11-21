@@ -5,7 +5,6 @@
   <title>Submit Marketing Expense</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    /* Layout */
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
@@ -42,7 +41,6 @@
       color: #334;
     }
 
-    /* Search UI blocks */
     .search-block {
       margin-bottom: 20px;
     }
@@ -113,6 +111,9 @@
       line-height: 1;
     }
   </style>
+
+  <!-- HubSpot forms v2 JS (inline embed) -->
+  <script charset="utf-8" type="text/javascript" src="//js.hsforms.net/forms/embed/v2.js"></script>
 </head>
 <body>
   <div class="wrapper">
@@ -130,7 +131,6 @@
 
     <!-- Custom search UI ABOVE the HubSpot form -->
     <div id="custom-search-blocks">
-      <!-- Company multi-select search -->
       <div class="search-block">
         <h2>Select Companies</h2>
         <small>
@@ -145,11 +145,9 @@
           autocomplete="off"
         />
         <ul id="company-results" class="results-list"></ul>
-
         <div id="company-selected" class="selected-chips"></div>
       </div>
 
-      <!-- Contact search (single, for association only) -->
       <div class="search-block">
         <h2>Select Contact (optional)</h2>
         <small>
@@ -166,15 +164,23 @@
       </div>
     </div>
 
-    <!-- HubSpot form embed -->
-    <script src="https://js.hsforms.net/forms/embed/47533335.js" defer></script>
-    <div
-      class="hs-form-frame"
-      data-region="na1"
-      data-form-id="655271df-bc7e-49ac-b47a-b6fd1dec3eac"
-      data-portal-id="47533335">
-    </div>
+    <!-- Container where HubSpot form will render inline -->
+    <div id="hs-form-container"></div>
   </div>
+
+  <script>
+    // Render the HubSpot form inline (no iframe)
+    document.addEventListener("DOMContentLoaded", function () {
+      if (window.hbspt && window.hbspt.forms) {
+        window.hbspt.forms.create({
+          region: "na1",
+          portalId: "47533335",
+          formId: "655271df-bc7e-49ac-b47a-b6fd1dec3eac",
+          target: "#hs-form-container"
+        });
+      }
+    });
+  </script>
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
@@ -185,14 +191,12 @@
       const contactInput   = document.getElementById("contact-search");
       const contactResults = document.getElementById("contact-results");
 
-      // If any of the expected elements are missing, don't throw hard errors
       if (!companyInput || !companyResults || !companySelected || !contactInput || !contactResults) {
         console.warn("Search inputs or result containers not found in DOM.");
         return;
       }
 
-      // In-memory store of selected companies
-      let selectedCompanies = []; // [{ id, name, city, domain }, ...]
+      let selectedCompanies = [];
 
       function debounce(fn, delay) {
         let t;
@@ -237,7 +241,6 @@
         }, 300)
       );
 
-      // When user clicks a company result
       companyResults.addEventListener("click", (e) => {
         if (e.target.tagName !== "LI") return;
 
@@ -246,7 +249,6 @@
         const city   = e.target.dataset.city;
         const domain = e.target.dataset.domain;
 
-        // Avoid duplicates
         if (!selectedCompanies.find((c) => c.id === id)) {
           selectedCompanies.push({ id, name, city, domain });
           renderSelectedCompanies();
@@ -282,11 +284,9 @@
         const ids   = selectedCompanies.map((c) => c.id);
         const names = selectedCompanies.map((c) => c.name);
 
-        // Multi-value fields (hidden contact properties on the HubSpot form)
         syncToHubSpotField("associated_company_ids_multi", ids.join(","));
         syncToHubSpotField("associated_company_names_multi", names.join(", "));
 
-        // Primary (first) company for compatibility
         if (selectedCompanies.length > 0) {
           syncToHubSpotField("associated_company", selectedCompanies[0].name);
           syncToHubSpotField("associated_company_id", selectedCompanies[0].id);
@@ -295,7 +295,6 @@
           syncToHubSpotField("associated_company_id", "");
         }
 
-        // Receipt split = number of selected companies
         syncToHubSpotField("receipt_split", String(selectedCompanies.length || 0));
       }
 
@@ -351,7 +350,7 @@
       // -----------------------------
       function syncToHubSpotField(internalName, value) {
         const start = Date.now();
-        const maxMs = 5000; // try up to 5 seconds
+        const maxMs = 5000;
 
         const interval = setInterval(() => {
           const field = document.querySelector(
